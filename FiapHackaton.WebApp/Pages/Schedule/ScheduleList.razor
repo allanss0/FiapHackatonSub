@@ -1,0 +1,94 @@
+﻿@page "/schedules"
+@using FiapHackaton.WebApp.Models
+@using FiapHackaton.WebApp.Services
+@using Newtonsoft.Json
+@inject NavigationManager _navMan
+@inject IHttpClientFactory ClientFactory
+@inject LocalStorageService _localStorage
+<div class="col-xl-12">
+
+    <div class="card mb-4">
+        <div class="card-header">Schedule List  <a href="/createschedule">Add Schedule</a></div>
+        <div class="card-body">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (schedules.Any())
+                    {
+                        foreach (var schedule in schedules)
+                        {
+                            <tr>
+                                <td>@schedule.DayOfWeek</td>
+                                <td>@schedule.StartTime</td>
+                                <td>@schedule.EndTime</td>
+                                <td>
+                                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteSchedule(schedule.ScheduleID)">Delete</button>
+                                    @*  <button class="btn btn-sm btn-success" @onclick="() => EditSchedule(schedule.ScheduleID)">  Edit</button> *@
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+
+                        <tr>
+                            <td class="text-center">No record found!</td>
+                        </tr>
+
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+@code {
+    private List<Schedule> schedules = new List<Schedule>();
+    private int userID = 0;
+    protected override async Task OnInitializedAsync()
+    {
+        var clientlocal = ClientFactory.CreateClient("LocalApi");
+        var Id = await _localStorage.GetItemAsync("UserId");
+        if (!string.IsNullOrEmpty(Id))
+        {
+            userID = Convert.ToInt32(Id);
+        }
+        if (userID <= 0)
+        {
+            _navMan.NavigateTo("/"); // Redirect to the schedules page
+            return;
+        }
+        var response = await clientlocal.GetAsync("api/Schedule/user/" + userID);
+        if (response.IsSuccessStatusCode)
+        {
+            var content = await response.Content.ReadAsStringAsync();
+            schedules = JsonConvert.DeserializeObject<List<Schedule>>(content);
+        }
+
+    }
+
+    private async Task DeleteSchedule(int id)
+    {
+        var clientlocal = ClientFactory.CreateClient("LocalApi");
+        var value = await _localStorage.GetItemAsync("UserId");
+        var userID = Convert.ToInt32(value);
+        var response = await clientlocal.DeleteAsync("api/Schedule/" + id);
+        if (response.IsSuccessStatusCode)
+        {
+            await OnInitializedAsync(); // Refresh the list of schedules after deletion
+        }
+
+    }
+    private async Task EditSchedule(int id)
+    {
+        await OnInitializedAsync(); // Refresh the list of schedules after deletion
+    }
+}

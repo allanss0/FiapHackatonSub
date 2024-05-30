@@ -1,0 +1,118 @@
+﻿@page "/doctors"
+@using FiapHackaton.WebApp.Models
+@using Newtonsoft.Json
+@inject NavigationManager _navMan
+@inject IHttpClientFactory ClientFactory
+@inject NavigationManager NavigationManager
+@using FiapHackaton.WebApp.Services
+
+@inject IHttpClientFactory ClientFactory
+@inject LocalStorageService _localStorage
+
+@using FiapHackaton.WebApp.Contracts.Interface
+@using FiapHackaton.WebApp.DTO
+
+@if (doctors.Any())
+{
+    
+    foreach (var item in doctors)
+    {
+        var days = item.Schedules.Select(a => a.DayOfWeek).Distinct();
+        <div class="card">
+            <div class="card-header">
+              @item.UserName
+            </div>
+            <div class="card-header">
+                <strong> Available Slots</strong>
+            </div>
+            <div class="card-body">
+              
+                <div style="width:100%;display:flex">
+                    
+                @foreach (var day in days)
+                {
+                             <div style="width:20%">
+                            <h5 class="card-title txt-center"><strong> @day</strong></h5>
+                           
+                    @foreach (var itm in item.Schedules.Where(a=>a.DayOfWeek==day))
+                    {
+
+                                var app = item.AppointmentModel.Where(a => a.ScheduleID == itm.ScheduleID && a.Status == "scheduled").FirstOrDefault();
+                                if (app != null)
+                                {
+                                    <a  title="Already booked" class="card-header">
+                                        @itm.StartTime -  @itm.EndTime
+
+
+                                    </a>
+                                }else{
+                                <a  title="book appointment" class="btn btn-primary btn-sm m-1" @onclick="() => BookAppointment(itm.ScheduleID,item.UserId)">
+                                    @itm.StartTime -  @itm.EndTime
+
+                                   
+                                </a>
+                                }
+                           
+                    }
+                    
+                   
+                    </div>
+                }
+                
+            </div>
+            </div>
+        </div>
+     }
+}
+@code {
+    private List<ScheduleModel> doctors = new List<ScheduleModel>();
+    private int userID = 0;
+    protected override async Task OnInitializedAsync()
+    {
+        var Id = await _localStorage.GetItemAsync("UserId");
+        if (!string.IsNullOrEmpty(Id))
+        {
+            userID = Convert.ToInt32(Id);
+        }
+       
+        if (userID <= 0)
+        {
+            _navMan.NavigateTo("/"); // Redirect to the schedules page
+            return;
+        }
+        var clientlocal = ClientFactory.CreateClient("LocalApi");
+        var response = await clientlocal.GetAsync("api/UserProfile/doctors");
+        if (response.IsSuccessStatusCode)
+        {
+            var content = await response.Content.ReadAsStringAsync();
+            doctors = JsonConvert.DeserializeObject<List<ScheduleModel>>(content);
+        }
+    }
+    private async Task BookAppointment(int id,int docid)
+    {
+        var clientlocal = ClientFactory.CreateClient("LocalApi");
+        var Id = await _localStorage.GetItemAsync("UserId");
+        if (string.IsNullOrEmpty(Id))
+        {
+            userID = Convert.ToInt32(Id);
+        }
+         userID = Convert.ToInt32(Id);
+
+        AppointmentModel appointmentModel = new AppointmentModel
+        {
+              Comments="Please book my appointment",
+                DoctorId = docid,
+                PatientId = userID,
+               ScheduleID=id,
+                Status = "scheduled",
+               CreatedAt=DateTime.UtcNow
+        };
+        var response = await clientlocal.PostAsJsonAsync("api/Appointment", appointmentModel);
+        
+        if (response.IsSuccessStatusCode)
+        {
+            await OnInitializedAsync(); // Refresh the list of schedules after deletion
+        }
+
+    }
+}

@@ -1,0 +1,2 @@
+docker build  -t webasm .
+docker run --name webasm -d -p 8092:8090 --rm webasm 

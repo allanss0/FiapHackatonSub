@@ -1,0 +1,4 @@
+docker build -t dhttps:v1 .
+docker run --rm -it -p 8000:80 -e ASPNETCORE_URLS="http://+"  dhttps:v1
+
+
